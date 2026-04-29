@@ -1,0 +1,9 @@
+.DS_Store
+.vscode
+.idea
+venv
+.venv
+.env
+env
+__pycache__/
+*.db

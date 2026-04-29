@@ -1,0 +1,18 @@
+[Unit]
+Description=Juftingni Top Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/juftingni_top
+EnvironmentFile=/home/ubuntu/juftingni_top/.env
+ExecStart=/home/ubuntu/juftingni_top/venv/bin/python /home/ubuntu/juftingni_top/main.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=append:/var/log/juftingni-bot.log
+StandardError=append:/var/log/juftingni-bot.log
+
+[Install]
+WantedBy=multi-user.target
