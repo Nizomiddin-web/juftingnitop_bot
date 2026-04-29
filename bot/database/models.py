@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -38,7 +39,7 @@ class RequestStatus(enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    telegram_id = Column(Integer, primary_key=True)
+    telegram_id = Column(BigInteger, primary_key=True)
     is_active = Column(Boolean, default=True)
     is_banned = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
@@ -90,8 +91,8 @@ class MatchRequest(Base):
     __tablename__ = "requests"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    sender_id = Column(Integer, ForeignKey("users.telegram_id"))
-    receiver_id = Column(Integer, ForeignKey("users.telegram_id"))
+    sender_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    receiver_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     intro_message = Column(Text, nullable=True)
     status = Column(SQLEnum(RequestStatus), default=RequestStatus.PENDING)
     created_at = Column(String(50), default=lambda: str(datetime.now()))
@@ -104,7 +105,7 @@ class Report(Base):
     __tablename__ = "reports"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.telegram_id"))
+    user_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     text = Column(Text)
     is_resolved = Column(Boolean, default=False)
     created_at = Column(String(50), default=lambda: str(datetime.now()))
@@ -114,8 +115,8 @@ class UserReport(Base):
     __tablename__ = "user_reports"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reporter_id = Column(Integer, ForeignKey("users.telegram_id"))
-    target_id = Column(Integer, ForeignKey("users.telegram_id"))
+    reporter_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    target_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     reason = Column(Text)
     is_resolved = Column(Boolean, default=False)
     created_at = Column(String(50), default=lambda: str(datetime.now()))
@@ -125,8 +126,8 @@ class Like(Base):
     __tablename__ = "likes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    from_id = Column(Integer, ForeignKey("users.telegram_id"))
-    to_id = Column(Integer, ForeignKey("users.telegram_id"))
+    from_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    to_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
@@ -134,8 +135,8 @@ class Favorite(Base):
     __tablename__ = "favorites"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.telegram_id"))
-    target_id = Column(Integer, ForeignKey("users.telegram_id"))
+    user_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    target_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
@@ -143,8 +144,8 @@ class Block(Base):
     __tablename__ = "blocks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.telegram_id"))
-    target_id = Column(Integer, ForeignKey("users.telegram_id"))
+    user_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    target_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
@@ -152,6 +153,6 @@ class ProfileView(Base):
     __tablename__ = "profile_views"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    viewer_id = Column(Integer, ForeignKey("users.telegram_id"))
-    target_id = Column(Integer, ForeignKey("users.telegram_id"))
+    viewer_id = Column(BigInteger, ForeignKey("users.telegram_id"))
+    target_id = Column(BigInteger, ForeignKey("users.telegram_id"))
     created_at = Column(String(50), default=lambda: str(datetime.now()))
