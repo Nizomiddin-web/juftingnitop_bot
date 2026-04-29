@@ -17,6 +17,7 @@ from bot.keyboards.inline import (
     generate_admin_main_kb,
     generate_admin_report_kb,
     generate_admin_user_kb,
+    generate_admin_users_list_kb,
     generate_broadcast_confirm_kb,
 )
 from bot.keyboards.reply import generate_main_menu_kb, remove_kb
@@ -225,6 +226,66 @@ async def adm_resolve(call: types.CallbackQuery):
     except Exception:
         pass
     await call.answer("✅ Hal qilindi")
+
+
+# --- Foydalanuvchilar ro'yxati (qizlar / yigitlar) ---
+
+
+USERS_PAGE_SIZE = 10
+
+
+@router.callback_query(F.data == "adm_noop")
+async def adm_noop(call: types.CallbackQuery):
+    await call.answer()
+
+
+@router.callback_query(F.data.regexp(r"^adm_users_[FM]_\d+$"))
+async def adm_users_list(call: types.CallbackQuery):
+    if not _check_admin_call(call):
+        return await call.answer()
+
+    parts = call.data.split("_")
+    gender_code = parts[2]
+    page = int(parts[3])
+    gender = Gender.FEMALE if gender_code == "F" else Gender.MALE
+    label = "👩 Qizlar" if gender == Gender.FEMALE else "👨 Yigitlar"
+
+    async with async_session() as session:
+        total = (
+            await session.execute(
+                select(func.count()).select_from(User).where(User.gender == gender)
+            )
+        ).scalar() or 0
+
+        if total == 0:
+            return await call.message.edit_text(
+                f"{label}\n\nHozircha ro'yxatda hech kim yo'q.",
+                parse_mode="HTML",
+                reply_markup=generate_admin_back_kb(),
+            )
+
+        total_pages = (total + USERS_PAGE_SIZE - 1) // USERS_PAGE_SIZE
+        page = max(0, min(page, total_pages - 1))
+
+        res = await session.execute(
+            select(User)
+            .where(User.gender == gender)
+            .order_by(User.created_at.desc())
+            .offset(page * USERS_PAGE_SIZE)
+            .limit(USERS_PAGE_SIZE)
+        )
+        users = res.scalars().all()
+
+    text = (
+        f"{label} <b>({total})</b> — sahifa {page+1}/{total_pages}\n\n"
+        "Profilini ko'rish uchun ismni bosing."
+    )
+    kb = generate_admin_users_list_kb(users, page, total_pages, gender_code)
+    try:
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    except Exception:
+        await call.message.answer(text, parse_mode="HTML", reply_markup=kb)
+    await call.answer()
 
 
 # --- Foydalanuvchini topish va boshqarish ---

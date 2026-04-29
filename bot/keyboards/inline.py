@@ -157,11 +157,58 @@ def generate_admin_main_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Statistika", callback_data="adm_stats")],
+            [
+                InlineKeyboardButton(text="👩 Qizlar", callback_data="adm_users_F_0"),
+                InlineKeyboardButton(text="👨 Yigitlar", callback_data="adm_users_M_0"),
+            ],
             [InlineKeyboardButton(text="🚨 Reportlar", callback_data="adm_reports")],
             [InlineKeyboardButton(text="🔍 Foydalanuvchini topish", callback_data="adm_finduser")],
             [InlineKeyboardButton(text="📢 Hammaga xabar yuborish", callback_data="adm_broadcast")],
         ]
     )
+
+
+def generate_admin_users_list_kb(
+    users, page: int, total_pages: int, gender_code: str
+) -> InlineKeyboardMarkup:
+    from datetime import datetime as _dt
+
+    rows = []
+    today = _dt.today().date()
+    for u in users:
+        age = "—"
+        if u.birth_date:
+            age = today.year - u.birth_date.year - (
+                (today.month, today.day) < (u.birth_date.month, u.birth_date.day)
+            )
+        prefix = ""
+        if u.is_banned:
+            prefix = "🚫 "
+        elif u.is_verified:
+            prefix = "✅ "
+        elif not u.is_active:
+            prefix = "⏸ "
+        name = (u.full_name or "—")[:30]
+        region = (u.region or "")[:20]
+        label = f"{prefix}{name}, {age} • {region}".strip()
+        rows.append(
+            [InlineKeyboardButton(text=label, callback_data=f"adm_userview_{u.telegram_id}")]
+        )
+
+    nav = []
+    if page > 0:
+        nav.append(
+            InlineKeyboardButton(text="◀️", callback_data=f"adm_users_{gender_code}_{page-1}")
+        )
+    nav.append(InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="adm_noop"))
+    if page + 1 < total_pages:
+        nav.append(
+            InlineKeyboardButton(text="▶️", callback_data=f"adm_users_{gender_code}_{page+1}")
+        )
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton(text="◀️ Admin panel", callback_data="adm_back")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def generate_admin_user_kb(user_id: int, is_banned: bool, is_verified: bool) -> InlineKeyboardMarkup:
