@@ -6,11 +6,12 @@ from datetime import datetime, timedelta
 from aiogram import F, Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 
 from bot.config import is_admin
 from bot.database.engine import async_session
 from bot.database.models import Gender, MatchRequest, Report, RequestStatus, User
+from bot.database.queries import delete_user_cascade
 from bot.keyboards.inline import (
     generate_admin_back_kb,
     generate_admin_delete_confirm_kb,
@@ -450,14 +451,13 @@ async def adm_del_confirm(call: types.CallbackQuery):
     if not _check_admin_call(call):
         return await call.answer()
     uid = int(call.data.split("_")[2])
-    async with async_session() as session:
-        await session.execute(
-            delete(MatchRequest).where(
-                (MatchRequest.sender_id == uid) | (MatchRequest.receiver_id == uid)
-            )
-        )
-        await session.execute(delete(User).where(User.telegram_id == uid))
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await delete_user_cascade(session, uid)
+            await session.commit()
+    except Exception as e:
+        logging.exception(f"Admin delete error for {uid}: {e!r}")
+        return await call.answer("❌ O'chirib bo'lmadi (log'ni tekshiring).", show_alert=True)
     try:
         await call.message.edit_text(f"✅ Foydalanuvchi <code>{uid}</code> o'chirildi.", parse_mode="HTML")
     except Exception:

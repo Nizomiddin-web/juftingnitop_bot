@@ -2,10 +2,11 @@ import logging
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from bot.database.engine import async_session
-from bot.database.models import MatchRequest, User, Visibility
+from bot.database.models import User, Visibility
+from bot.database.queries import delete_user_cascade
 from bot.keyboards.inline import (
     generate_confirm_delete_kb,
     generate_filters_kb,
@@ -143,14 +144,14 @@ async def ask_delete(call: types.CallbackQuery):
 @router.callback_query(F.data == "del_confirm")
 async def delete_profile(call: types.CallbackQuery):
     uid = call.from_user.id
-    async with async_session() as session:
-        await session.execute(
-            delete(MatchRequest).where(
-                (MatchRequest.sender_id == uid) | (MatchRequest.receiver_id == uid)
-            )
-        )
-        await session.execute(delete(User).where(User.telegram_id == uid))
-        await session.commit()
+    try:
+        async with async_session() as session:
+            await delete_user_cascade(session, uid)
+            await session.commit()
+    except Exception as e:
+        logging.exception(f"Profile delete error: {e!r}")
+        await call.answer("❌ Xatolik. Qayta urinib ko'ring.", show_alert=True)
+        return
     await call.message.edit_text("✅ Profilingiz o'chirildi. /start orqali qayta ro'yxatdan o'ting.")
     await call.answer()
 
