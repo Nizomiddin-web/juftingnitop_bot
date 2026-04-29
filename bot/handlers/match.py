@@ -229,3 +229,158 @@ async def skip_candidate(call: types.CallbackQuery):
     else:
         await send_candidate_to_user(call.message, user, candidate)
     await call.answer("O'tkazib yuborildi.")
+
+
+# --- Inline qidiruv ---
+
+from aiogram.types import (  # noqa: E402
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InlineQuery,
+    InlineQueryResultArticle,
+    InlineQueryResultsButton,
+    InputTextMessageContent,
+)
+
+
+async def _get_inline_matches(user: User, query_text: str, limit: int = 20) -> list[User]:
+    target_gender = Gender.FEMALE if user.gender == Gender.MALE else Gender.MALE
+
+    async with async_session() as session:
+        req_res = await session.execute(
+            select(MatchRequest.sender_id, MatchRequest.receiver_id).where(
+                or_(
+                    MatchRequest.sender_id == user.telegram_id,
+                    MatchRequest.receiver_id == user.telegram_id,
+                )
+            )
+        )
+        excluded = {user.telegram_id}
+        for r in req_res.all():
+            excluded.add(r.sender_id)
+            excluded.add(r.receiver_id)
+
+        block_res = await session.execute(
+            select(Block.user_id, Block.target_id).where(
+                or_(Block.user_id == user.telegram_id, Block.target_id == user.telegram_id)
+            )
+        )
+        for r in block_res.all():
+            excluded.add(r.user_id)
+            excluded.add(r.target_id)
+
+        stmt = select(User).where(
+            and_(
+                User.is_active == True,  # noqa: E712
+                User.is_banned == False,  # noqa: E712
+                User.gender == target_gender,
+                User.telegram_id.notin_(excluded),
+                User.visibility != Visibility.REQUESTED_ONLY,
+            )
+        )
+        if query_text:
+            stmt = stmt.where(User.full_name.ilike(f"%{query_text}%"))
+        stmt = stmt.limit(100)
+        candidates_res = await session.execute(stmt)
+        candidates = candidates_res.scalars().all()
+
+    age_min = user.search_age_min or 18
+    age_max = user.search_age_max or 80
+    max_dist = user.search_distance_km or 50
+
+    scored = []
+    for c in candidates:
+        age = calculate_age(c.birth_date)
+        if not age or age < age_min or age > age_max:
+            continue
+        dist = haversine(user.latitude, user.longitude, c.latitude, c.longitude)
+        if user.latitude and c.latitude and dist > max_dist:
+            continue
+        if c.visibility == Visibility.MATCHED_ONLY and c.region != user.region:
+            continue
+        pct = get_match_percentage(user, c, dist)
+        scored.append((pct, c))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [c for _, c in scored[:limit]]
+
+
+@router.inline_query()
+async def inline_search(query: InlineQuery):
+    user_id = query.from_user.id
+    me = await query.bot.me()
+    bot_username = me.username
+
+    async with async_session() as session:
+        res = await session.execute(select(User).filter_by(telegram_id=user_id))
+        user = res.scalars().first()
+
+    if not user:
+        return await query.answer(
+            [],
+            cache_time=1,
+            is_personal=True,
+            button=InlineQueryResultsButton(
+                text="Avval ro'yxatdan o'ting",
+                start_parameter="start",
+            ),
+        )
+
+    if user.is_banned or not user.is_active:
+        return await query.answer(
+            [],
+            cache_time=5,
+            is_personal=True,
+            button=InlineQueryResultsButton(
+                text="Profilingiz faol emas — botga kirish",
+                start_parameter="start",
+            ),
+        )
+
+    query_text = (query.query or "").strip()
+    candidates = await _get_inline_matches(user, query_text, limit=20)
+
+    if not candidates:
+        return await query.answer(
+            [],
+            cache_time=10,
+            is_personal=True,
+            button=InlineQueryResultsButton(
+                text="Mos nomzod yo'q — talablarni kengaytirish",
+                start_parameter="start",
+            ),
+        )
+
+    results = []
+    for c in candidates:
+        age = calculate_age(c.birth_date) or "?"
+        distance = haversine(user.latitude, user.longitude, c.latitude, c.longitude)
+        pct = get_match_percentage(user, c, distance)
+
+        verified = " ✅" if c.is_verified else ""
+        title = f"{c.full_name}, {age} yosh{verified}"
+        description = f"📍 {c.region or '—'} • ❤️ {pct}% mos"
+
+        view_url = f"https://t.me/{bot_username}?start=view_{c.telegram_id}"
+
+        results.append(
+            InlineQueryResultArticle(
+                id=str(c.telegram_id),
+                title=title,
+                description=description,
+                input_message_content=InputTextMessageContent(
+                    message_text=(
+                        "💞 <b>Juftingni Top</b>\n\n"
+                        "Mos profil topildi. Faqat botda ko'ra olasiz."
+                    ),
+                    parse_mode="HTML",
+                ),
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="👁 Botda ochish", url=view_url)]
+                    ]
+                ),
+            )
+        )
+
+    await query.answer(results, cache_time=10, is_personal=True)

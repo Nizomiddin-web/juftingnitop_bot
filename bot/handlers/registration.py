@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from aiogram import F, Router, types
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 
@@ -43,6 +43,55 @@ from bot.utils.text_filter import filter_reason
 router = Router()
 
 MAX_PHOTOS = 4
+
+
+@router.message(CommandStart(deep_link=True))
+async def cmd_start_deeplink(message: types.Message, command: CommandObject, state: FSMContext):
+    args = command.args or ""
+    if args.startswith("view_"):
+        try:
+            candidate_id = int(args[5:])
+        except ValueError:
+            return await cmd_start(message, state)
+        return await _handle_view_deeplink(message, candidate_id, state)
+    return await cmd_start(message, state)
+
+
+async def _handle_view_deeplink(message: types.Message, candidate_id: int, state: FSMContext):
+    from bot.database.models import Visibility
+    from bot.handlers.match import send_candidate_to_user
+
+    await state.clear()
+    user_id = message.from_user.id
+
+    async with async_session() as session:
+        ures = await session.execute(select(User).filter_by(telegram_id=user_id))
+        user = ures.scalars().first()
+
+    if not user:
+        return await cmd_start(message, state)
+
+    async with async_session() as session:
+        cres = await session.execute(select(User).filter_by(telegram_id=candidate_id))
+        candidate = cres.scalars().first()
+
+    if not candidate or candidate.is_banned or not candidate.is_active:
+        await message.answer("❌ Bu profil hozir mavjud emas.", reply_markup=generate_main_menu_kb())
+        return
+    if candidate.gender == user.gender:
+        await message.answer("❌ Bu profilni ko'ra olmaysiz.", reply_markup=generate_main_menu_kb())
+        return
+    if candidate.visibility == Visibility.REQUESTED_ONLY:
+        await message.answer("🔒 Bu profil yopiq.", reply_markup=generate_main_menu_kb())
+        return
+    if candidate.visibility == Visibility.MATCHED_ONLY and candidate.region != user.region:
+        await message.answer(
+            "🔒 Bu profilni ko'rish uchun bir xil viloyatdan bo'lishingiz kerak.",
+            reply_markup=generate_main_menu_kb(),
+        )
+        return
+
+    await send_candidate_to_user(message, user, candidate)
 
 
 @router.message(CommandStart())
