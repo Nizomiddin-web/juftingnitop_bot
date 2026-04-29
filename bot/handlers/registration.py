@@ -416,7 +416,7 @@ async def finish_registration(message: types.Message, state: FSMContext):
             session.add(new_user)
             await session.commit()
     except Exception as e:
-        logging.error(f"Registration save error: {e}")
+        logging.exception(f"Registration save error: {e!r}")
         await message.answer("Bazada xatolik yuz berdi. /start ni qaytadan bosing.")
         await state.clear()
         return
