@@ -44,7 +44,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     notifications_on = Column(Boolean, default=True)
     visibility = Column(SQLEnum(Visibility), default=Visibility.MATCHED_ONLY)
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
     full_name = Column(String(100))
     gender = Column(SQLEnum(Gender))
@@ -70,7 +70,7 @@ class User(Base):
     search_distance_km = Column(Integer, default=50)
     search_education = Column(String(100), nullable=True)
 
-    photos = Column(String, default="[]")
+    photos = Column(Text, default="[]")
 
     # Faza 1: telefon
     phone = Column(String(20), nullable=True)
@@ -83,7 +83,7 @@ class User(Base):
     wears_hijab = Column(String(20), nullable=True)  # ayollar uchun: "Ha" / "Yo'q" / "Tayyorman"
 
     # Faza 2: faollik
-    last_active = Column(String, default=lambda: str(datetime.now()))
+    last_active = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class MatchRequest(Base):
@@ -94,7 +94,7 @@ class MatchRequest(Base):
     receiver_id = Column(Integer, ForeignKey("users.telegram_id"))
     intro_message = Column(Text, nullable=True)
     status = Column(SQLEnum(RequestStatus), default=RequestStatus.PENDING)
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
@@ -107,7 +107,7 @@ class Report(Base):
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
     text = Column(Text)
     is_resolved = Column(Boolean, default=False)
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class UserReport(Base):
@@ -118,7 +118,7 @@ class UserReport(Base):
     target_id = Column(Integer, ForeignKey("users.telegram_id"))
     reason = Column(Text)
     is_resolved = Column(Boolean, default=False)
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class Like(Base):
@@ -127,7 +127,7 @@ class Like(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     from_id = Column(Integer, ForeignKey("users.telegram_id"))
     to_id = Column(Integer, ForeignKey("users.telegram_id"))
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class Favorite(Base):
@@ -136,7 +136,7 @@ class Favorite(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
     target_id = Column(Integer, ForeignKey("users.telegram_id"))
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class Block(Base):
@@ -145,7 +145,7 @@ class Block(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
     target_id = Column(Integer, ForeignKey("users.telegram_id"))
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
 
 
 class ProfileView(Base):
@@ -154,4 +154,4 @@ class ProfileView(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     viewer_id = Column(Integer, ForeignKey("users.telegram_id"))
     target_id = Column(Integer, ForeignKey("users.telegram_id"))
-    created_at = Column(String, default=lambda: str(datetime.now()))
+    created_at = Column(String(50), default=lambda: str(datetime.now()))
